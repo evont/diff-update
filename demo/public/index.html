@@ -28,6 +28,8 @@
                     if (info[0] === '+') {
                         var addedString = info.slice(1, info.length);
                         newString += addedString;
+                        oldString = oldString.slice(0, p) + addedString + oldString.slice(p + addedString.length);
+                        p += addedString.length;
                     }
                     if (info[0] === '-') {
                         var removedCount = parseInt(info.slice(1, info.length));

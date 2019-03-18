@@ -1,15 +1,15 @@
 var a = 3;
-var b = 12;
+var b = 22;
 function getA(d) {
   return a + b + d;
 }
 
-function getB() {
-  return a + b + 12;
+function getB(c, f) {
+  return a + c + f + 422;
 }
 
 function getC() {
-  return a + b + 42;
+  return a + b + 422;
 }
 
 module.exports = {
