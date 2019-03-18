@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>test</title>
+  <style>
+    #box {
+      height: 300px;
+      width: 300px;
+      background: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div id="box"></div>
+  <script>
+    ~(function() {
+      function mergeDiff(oldString, diffInfo) {
+        var newString = '';
+        var p = 0;
+        diffInfo = JSON.parse(diffInfo)['js']['main.js'];
+        diffInfo = JSON.parse(diffInfo);
+        console.log(diffInfo);
+        for (var i = 0; i < diffInfo.length; i++) {
+            var info = diffInfo[i];
+            if (typeof(info) == 'number') {
+                newString += oldString.slice(p, p + info);
+                p += info;
+                continue;
+            }
+            if (typeof(info) == 'string') {
+                if (info[0] === '+') {
+                    var addedString = info.slice(1, info.length);
+                    newString += addedString;
+                }
+                if (info[0] === '-') {
+                    var removedCount = parseInt(info.slice(1, info.length));
+                    p += removedCount;
+                }
+            }
+        }
+        return newString;
+      }
+      var file = localStorage.getItem('file_main.js');
+      if (file) {
+        var ajax = new XMLHttpRequest();
+        ajax.open('GET', '/diff.json');
+        ajax.onload = function() {
+          var data = this.responseText;
+          var result = mergeDiff(file, data);
+          eval(result);
+        };
+        ajax.send();
+      } else {
+        // var script = document.createElement('script');
+        // script.src = 'main.js';
+        // document.body.appendChild(script);
+        // script.onreadystatechange = function(e) {
+        //   console.log(this)
+        // }
+        var ajax = new XMLHttpRequest();
+        ajax.open('GET', '/main.js');
+        ajax.onload = function() {
+          var data = this.responseText;
+          localStorage.setItem('file_main.js', data);
+          eval(data);
+        };
+        ajax.send();
+      }
+      
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "diffupdate",
+  "version": "1.0.0",
+  "description": "a tool for fe resource diff update",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Evont Ng <evontgoh@foxmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "colors": "^1.3.3",
+    "diff": "^4.0.1",
+    "fast-diff": "^1.2.0"
+  }
+}
