@@ -11,5 +11,7 @@
   </head>
   <body>
     <div id="box"></div>
-  <script type="text/javascript" src="index.js"></script></body>
+  <script>!function(){function h(e,n){var t="";n=JSON.parse(n);for(var o=0,a=0;a<n.length;a++){var r=n[a];if("number"!=typeof r){if("string"==typeof r){if("+"===r[0]){var i=r.slice(1,r.length);t+=i,e=e.slice(0,o)+i+e.slice(o+i.length),o+=i.length}if("-"===r[0])o+=parseInt(r.slice(1,r.length))}}else t+=e.slice(o,o+r),o+=r}return t}function o(e,n){var t=new XMLHttpRequest;t.open("GET",e),t.onload=function(){var e=this.responseText;n&&n(e)},t.send()}function g(n){o(n,function(e){window.eval(e),localStorage.setItem(n,JSON.stringify({hash:window.__fileHash,source:e}))})}window.loadScript=function(e){for(var n=0,t=e.length;n<t;n++){var l=e[n];if(localStorage.getItem(l)){var f=JSON.parse(localStorage.getItem(l)),c=f.hash;o("diff.json",function(e){for(var n,t,o=(e=JSON.parse(e))[l],a=0,r=o.length;a<r;a++){var i=o[a];i.hash===c&&(n=i.diff,t=i.hash)}if(n){var s=h(f.source,n);console.log(s),window.eval(s),localStorage.setItem(l,JSON.stringify({hash:t,source:s}))}else g(l)})}else g(l)}}}();</script>
+<script>loadScript(["index.js","main.js"])</script>
+</body>
 </html>

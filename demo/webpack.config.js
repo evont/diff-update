@@ -13,7 +13,7 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       template: './index.html',
-      chunks: ['index']
+      chunks: ['index', 'main']
     }),
     new DiffUpdate()
   ]

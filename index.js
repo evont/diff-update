@@ -68,6 +68,7 @@ const insertScript = `~(function() {
           }
           if (diff) {
             var newScript = mergeDiff(itemCache.source, diff);
+            console.log(newScript);
             window.eval(newScript);
             localStorage.setItem(item, JSON.stringify({
               hash: newHash,
@@ -120,16 +121,35 @@ module.exports = class DiffUpdate {
     return arr;
   }
   apply(compiler) {
-    // compiler.plugin('compilation', (compilation) => {
-    //   let oriHtml = '';
-    //   compilation.plugin('html-webpack-plugin-before-html-processing', function(data) {
-    //     oriHtml = data.html;
-    //     // const result = UglifyJS.minify(insertScript);
-    //   });
-    //   compilation.plugin('html-webpack-plugin-after-html-processing', function(data) {
-    //     const result = UglifyJS.minify(insertScript);
-    //   });
-    // })
+    const result = UglifyJS.minify(insertScript);
+    compiler.plugin('compilation', (compilation) => {
+      let oriHtml = '';
+      compilation.plugin('html-webpack-plugin-before-html-processing', function(data) {
+        // console.log(data);
+        oriHtml = data.html;
+        // const result = UglifyJS.minify(insertScript);
+      });
+      compilation.plugin('html-webpack-plugin-after-html-processing', function(data) {
+        const diff = jsdiff.diffWords(oriHtml, data.html);
+        let newHtml = '';
+        let count = 0;
+
+        for (let i = 0, len = diff.length; i < len; i += 1) {
+          const item = diff[i];
+          if (item.added) {
+            let { value } = item;
+            const jsList = value.match(/(?<=src=")(.*?\.js)/g);
+            value = value.replace(/<script type="text\/javascript" src=".*?"><\/script>/g, '');
+            newHtml += `<script>${result.code}</script>\n<script>loadScript(${JSON.stringify(jsList)})</script>\n${value}`;
+          } else if (item.removed) {
+
+          } else {
+            newHtml += item.value;
+          }
+        }
+        data.html = newHtml;
+      });
+    })
     compiler.plugin('beforeRun', (compiler) => {
       const output = compiler.options.output.path;
       const publicPath = compiler.options.output.publicPath || '/';
