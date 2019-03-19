@@ -1,16 +1,20 @@
 const DiffUpdate = require('../index');
-const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = {
   mode: 'production',
-  entry: [
-    './src/index.js',
-    './src/main.js'
-  ],
+  entry: {
+    index: './src/index.js',
+    main: './src/main.js'
+  },
   output: {
     filename:'[name].js',
     // path: path.resolve(__dirname, './build'),
   },
   plugins: [
+    new HtmlWebpackPlugin({
+      template: './index.html',
+      chunks: ['index']
+    }),
     new DiffUpdate()
   ]
 }
