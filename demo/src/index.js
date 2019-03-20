@@ -1,2 +1,2 @@
-document.getElementById('box').style.backgroundColor = '#332699';
-document.getElementById('box').style.border = '1px solid #ddd';
+document.getElementById('box').style.backgroundColor = '#323299';
+document.getElementById('box').style.border = '20px dashed #000';

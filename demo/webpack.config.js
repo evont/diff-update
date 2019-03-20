@@ -15,6 +15,11 @@ module.exports = {
       template: './index.html',
       chunks: ['index', 'main']
     }),
+    new HtmlWebpackPlugin({
+      filename:'b.html',
+      template: './index.html',
+      chunks: ['index']
+    }),
     new DiffUpdate()
   ]
 }
