@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const UglifyJS = require('uglify-js');
-const jsdiff = require('diff');
+const jsdiff = require('fast-diff');
 
 const insertScript = fs.readFileSync(path.resolve(__dirname, './tmp.js'), 'utf-8');
 
@@ -48,7 +48,7 @@ module.exports = class DiffUpdate {
         oriHtml = data.html;
       });
       compilation.plugin('html-webpack-plugin-after-html-processing', function(data) {
-        const diff = jsdiff.diffWords(oriHtml, data.html);
+        const diff = jsdiff(oriHtml, data.html);
         let newHtml = '';
         const { fileCache, diffJson, cacheLimit } = _self;
         compilation.chunks.forEach(chunk => {
@@ -65,7 +65,7 @@ module.exports = class DiffUpdate {
               }
               diffJson[filename].forEach((ele, index) => {
                 const item = fileCache[filename][index];
-                const diff = _self.minimizeDiffInfo(jsdiff.diffChars(item.source, newFile));  
+                const diff = jsdiff(item.source, newFile);  
                 ele.diff = diff;
               });
               diffJson[filename] = _self.spliceOverflow(diffJson[filename], cacheLimit);
