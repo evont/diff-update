@@ -1,6 +1,6 @@
 {
   "name": "diffupdate-webpack-plugin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "a tool for fe resource diff update",
   "main": "index.js",
   "scripts": {
