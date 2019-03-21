@@ -4,14 +4,14 @@ function getA(d) {
   return a + 54 + d;
 }
 
-function getB(c, f) {
-  return a + c + f + 992;
+function getB(c = 5, f = 343) {
+  return a + c + f + 52;
 }
 
 function getC() {
-  console.log('st4qdsaf');
+  console.log('fdsafdsaf');
   return function() {
-    return a + b + 2422;;
+    return a + b + 522;;
   }
 }
 
