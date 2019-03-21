@@ -7,7 +7,7 @@ const diff = require('diff');
 const insertScript = fs.readFileSync(path.resolve(__dirname, './tmp.js'), 'utf-8');
 
 module.exports = class DiffUpdate {
-  constructor(options) {
+  constructor(options = {}) {
     /**
      * 文件缓存
     */
@@ -32,7 +32,6 @@ module.exports = class DiffUpdate {
         return str;
       }
     });
-    // console.log(result);
     return result;
   }
   spliceOverflow(arr, limit) {
@@ -45,6 +44,21 @@ module.exports = class DiffUpdate {
   apply(compiler) {
     const result = UglifyJS.minify(insertScript);
     const _self = this;
+    compiler.plugin('beforeRun', (compiler) => {
+      const output = compiler.options.output.path;
+      this.output = output;
+      if (fs.existsSync(output)) {
+        const files = fs.readdirSync(output);
+        files.forEach(item => {
+          const data = fs.readFileSync(`${output}/${item}`, 'utf-8');
+          if (item === this.diffJSONName) {
+            this.diffJson = JSON.parse(data);
+          } else if (item === this.fileCachName) {
+            this.fileCache = JSON.parse(data);
+          }
+        })
+      }
+    })
     compiler.plugin('compilation', (compilation) => {
       let oriHtml = '';
       compilation.plugin('html-webpack-plugin-before-html-processing', function(data) {
@@ -59,6 +73,7 @@ module.exports = class DiffUpdate {
           const { hash } = chunk;
           chunk.files.forEach(filename => {
             let newFile = compilation.assets[filename].source();
+            newFile = `${newFile}\nwindow.__fileHash = '${hash}'`;
             fileCache[filename] = fileCache[filename] || [];
             diffJson[filename] = diffJson[filename] || [];
             if (filename.indexOf('.js') !== -1) {
@@ -69,8 +84,6 @@ module.exports = class DiffUpdate {
               }
               diffJson[filename].forEach((ele, index) => {
                 const item = fileCache[filename][index];
-                console.log('source----',item.source);
-                console.log('newfile----', newFile)
                 const diff = _self.minimizeDiffInfo(fastDiff(item.source, newFile));
                 ele.diff = diff;
               });
@@ -78,7 +91,7 @@ module.exports = class DiffUpdate {
               fileCache[filename] = _self.spliceOverflow(fileCache[filename], cacheLimit);
               newFileCache.push({
                 filename,
-                content: `${newFile}\nwindow.__fileHash = '${hash}'`,
+                content: newFile,
               })
             }
           });
@@ -114,23 +127,6 @@ module.exports = class DiffUpdate {
         }
         data.html = newHtml;
       });
-    })
-    compiler.plugin('beforeRun', (compiler) => {
-      const output = compiler.options.output.path;
-      const publicPath = compiler.options.output.publicPath || '/';
-
-      this.output = output;
-      if (fs.existsSync(output)) {
-        const files = fs.readdirSync(output);
-        files.forEach(item => {
-          const data = fs.readFileSync(`${output}/${item}`, 'utf-8');
-          if (item === this.diffJSONName) {
-            this.diffJson = JSON.parse(data);
-          } else if (item === this.fileCachName) {
-            this.fileCache = JSON.parse(data);
-          }
-        })
-      }
-    })
+    });
   }
 }

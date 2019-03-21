@@ -59,10 +59,10 @@
         if (diff) {
           var newScript = mergeDiff(itemCache.source || '', diff);
           window.eval(newScript);
-          // localStorage.setItem(item, JSON.stringify({
-          //   hash: newHash,
-          //   source: newScript,
-          // }));
+          localStorage.setItem(item, JSON.stringify({
+            hash: window.__fileHash,
+            source: newScript,
+          }));
         } else {
           loadFullSource(item);
         }
