@@ -1,7 +1,7 @@
-var a = 3;
-var b = 32;
+var a = 65;
+var b = 92;
 function getA(d) {
-  return a + b + d;
+  return a + 54 + d;
 }
 
 function getB(c, f) {
@@ -9,7 +9,10 @@ function getB(c, f) {
 }
 
 function getC() {
-  return a + b + 522;
+  console.log('st4qdsaf');
+  return function() {
+    return a + b + 2422;;
+  }
 }
 
 module.exports = {

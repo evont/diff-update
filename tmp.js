@@ -1,37 +1,34 @@
 ~(function() {
   function mergeDiff(oldString, diffInfo) {
-      var newString = '';
       var p = 0;
       for (var i = 0; i < diffInfo.length; i++) {
-          var info = diffInfo[i];
-          if (typeof(info) == 'number') {
-              newString += oldString.slice(p, p + info);
-              p += info;
-              continue;
+        var info = diffInfo[i];
+        if (typeof(info) == 'string') {
+          info = info.replace(/\\"/g, '"').replace(/\\'/g, "'");
+          oldString = oldString.slice(0, p) + info + oldString.slice(p);
+          p += info.length;
+        }
+        if (typeof(info) == 'number') {
+          if (info < 0) {
+            oldString = oldString.slice(0, p) + oldString.slice(p + Math.abs(info));
+          } else {
+            p += info;
           }
-          if (typeof(info) == 'string') {
-              if (info[0] === '+') {
-                  var addedString = info.slice(1, info.length);
-                  newString += addedString;
-                  oldString = oldString.slice(0, p) + addedString + oldString.slice(p + addedString.length);
-                  p += addedString.length;
-              }
-              if (info[0] === '-') {
-                  var removedCount = parseInt(info.slice(1, info.length));
-                  p += removedCount;
-              }
-          }
+          continue;
+        }
       }
-      return newString;
+      return oldString;
   }
   function ajaxLoad(resource, callback) {
-    var ajax = new XMLHttpRequest();
-    ajax.open('GET', resource);
-    ajax.onload = function() {
-      var result = this.responseText;
-      callback && callback(result);
+    if (resource) {
+      var ajax = new XMLHttpRequest();
+      ajax.open('GET', resource);
+      ajax.onload = function() {
+        var result = this.responseText;
+        callback && callback(result);
+      }
+      ajax.send();
     }
-    ajax.send();
   }
   function loadFullSource(item) {
     ajaxLoad(item, function(result) {
@@ -48,7 +45,7 @@
       if (localStorage.getItem(item)) {
         var itemCache = JSON.parse(localStorage.getItem(item));
         var _hash = itemCache.hash;
-        __fileDiff__ = JSON.parse(window.__fileDiff__ || '{}');
+        __fileDiff__ = typeof(__fileDiff__) === 'string' ? JSON.parse(__fileDiff__ || '{}') : __fileDiff__;
         var fileInfo = __fileDiff__[item] || [];
         var diff;
         var newHash;
@@ -60,12 +57,12 @@
           }
         }
         if (diff) {
-          var newScript = mergeDiff(itemCache.source, diff);
+          var newScript = mergeDiff(itemCache.source || '', diff);
           window.eval(newScript);
-          localStorage.setItem(item, JSON.stringify({
-            hash: newHash,
-            source: newScript,
-          }));
+          // localStorage.setItem(item, JSON.stringify({
+          //   hash: newHash,
+          //   source: newScript,
+          // }));
         } else {
           loadFullSource(item);
         }

@@ -1,35 +1,38 @@
 const fs = require('fs');
 const path = require('path');
 const UglifyJS = require('uglify-js');
-const jsdiff = require('fast-diff');
+const fastDiff = require('fast-diff');
+const diff = require('diff');
 
 const insertScript = fs.readFileSync(path.resolve(__dirname, './tmp.js'), 'utf-8');
 
 module.exports = class DiffUpdate {
-  constructor() {
+  constructor(options) {
     /**
      * 文件缓存
     */
-    this.fileCache = {}; // { 'main.js' : { 'v1': 'dsfafad', 'v2': 'sdafsdfadsf   }  }
+    this.fileCache = {};
     /**
      * 增量差分数据
     */
-    this.diffJson = {}; // { 'main.js' : { 'v1': 'dsfafad', 'v2': 'sdafsdfadsf   }  }
+    this.diffJson = {};
     this.output = '';
     this.diffJSONName = 'diff.json';
     this.fileCachName = 'fileCache.json';
-    this.cacheLimit = 3;
+    this.cacheLimit = options.limit || 3;
   }
   minimizeDiffInfo(originalInfo) {
     const result = originalInfo.map(info => {
-      if (info.added) {
-        return '+' + info.value;
+      if (info[0] === 0) {
+        return info[1].length;
+      } else if (info[0] === -1) {
+        return -1 * info[1].length;
+      } else {
+        const str = info[1].replace(/"/g, '\\"').replace(/'/g, `\\"`);
+        return str;
       }
-      if (info.removed) {
-        return '-' + info.count;
-      }
-      return info.count;
     });
+    // console.log(result);
     return result;
   }
   spliceOverflow(arr, limit) {
@@ -48,13 +51,14 @@ module.exports = class DiffUpdate {
         oriHtml = data.html;
       });
       compilation.plugin('html-webpack-plugin-after-html-processing', function(data) {
-        const diff = jsdiff(oriHtml, data.html);
+        const htmlDiff = diff.diffLines(oriHtml, data.html);
         let newHtml = '';
+        let newFileCache = [];
         const { fileCache, diffJson, cacheLimit } = _self;
         compilation.chunks.forEach(chunk => {
           const { hash } = chunk;
           chunk.files.forEach(filename => {
-            const newFile = compilation.assets[filename].source();
+            let newFile = compilation.assets[filename].source();
             fileCache[filename] = fileCache[filename] || [];
             diffJson[filename] = diffJson[filename] || [];
             if (filename.indexOf('.js') !== -1) {
@@ -65,34 +69,43 @@ module.exports = class DiffUpdate {
               }
               diffJson[filename].forEach((ele, index) => {
                 const item = fileCache[filename][index];
-                const diff = jsdiff(item.source, newFile);  
+                console.log('source----',item.source);
+                console.log('newfile----', newFile)
+                const diff = _self.minimizeDiffInfo(fastDiff(item.source, newFile));
                 ele.diff = diff;
               });
               diffJson[filename] = _self.spliceOverflow(diffJson[filename], cacheLimit);
               fileCache[filename] = _self.spliceOverflow(fileCache[filename], cacheLimit);
-            }
-            const newContent = `${newFile}`;
-            compilation.assets[filename] = {
-              source() { return newContent; },
-              size() { return newContent.length; }
-            }
-            compilation.assets[_self.diffJSONName] = {
-              source() { return JSON.stringify(diffJson); },
-              size() { return JSON.stringify(diffJson).length; }
+              newFileCache.push({
+                filename,
+                content: `${newFile}\nwindow.__fileHash = '${hash}'`,
+              })
             }
           });
         });
-        compilation.assets[_self.fileCachName] = {
-          source() { return JSON.stringify(fileCache); },
-          size() { return JSON.stringify(fileCache).length;}
-        }
-        for (let i = 0, len = diff.length; i < len; i += 1) {
-          const item = diff[i];
+        setTimeout(() => {
+          newFileCache.forEach(ele => {
+            compilation.assets[ele.filename] = {
+              source() { return ele.content; },
+              size() { return ele.content.length; }
+            }
+          })
+          compilation.assets[_self.diffJSONName] = {
+            source() { return JSON.stringify(diffJson); },
+            size() { return JSON.stringify(diffJson).length; }
+          }
+          compilation.assets[_self.fileCachName] = {
+            source() { return JSON.stringify(fileCache); },
+            size() { return JSON.stringify(fileCache).length;}
+          }
+        });
+        for (let i = 0, len = htmlDiff.length; i < len; i += 1) {
+          const item = htmlDiff[i];
           if (item.added) {
             let { value } = item;
             const jsList = value.match(/(?<=src=")(.*?\.js)/g);
             value = value.replace(/<script type="text\/javascript" src=".*?"><\/script>/g, '');
-            newHtml += `<script>${result.code}</script>\n<script>window.__fileDiff__='${JSON.stringify(diffJson)}';loadScript(${JSON.stringify(jsList)})</script>\n${value}`;
+            newHtml += `<script>${result.code}</script>\n<script>window.__fileDiff__='${JSON.stringify(diffJson)}';</script><script>loadScript(${JSON.stringify(jsList)});</script>\n${value}`;
           } else if (item.removed) {
 
           } else {

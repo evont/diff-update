@@ -4,7 +4,8 @@ module.exports = {
   mode: 'production',
   entry: {
     index: './src/index.js',
-    main: './src/main.js'
+    main: './src/main.js',
+    out: './src/out.js',
   },
   output: {
     filename:'[name].js',
@@ -18,7 +19,7 @@ module.exports = {
     new HtmlWebpackPlugin({
       filename:'b.html',
       template: './index.html',
-      chunks: ['index']
+      chunks: ['index', 'out']
     }),
     new DiffUpdate()
   ]
