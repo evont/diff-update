@@ -6,22 +6,26 @@ const diff = require('diff');
 
 const insertScript = fs.readFileSync(path.resolve(__dirname, './tmp.js'), 'utf-8');
 
+function deepCopy(obj) {
+  const target = {};
+  for (const i in obj) {
+    if (typeof obj[i] === 'object') {
+      deepCopy(obj[i]);
+    }
+    target[i] = obj[i];
+  }
+  return target;
+}
 module.exports = class DiffUpdate {
   constructor(options = {}) {
-    /**
-     * 文件缓存
-    */
     this.fileCache = {};
-    /**
-     * 增量差分数据
-    */
     this.diffJson = {};
-    this.output = '';
     this.diffJSONName = 'diff.json';
     this.fileCachName = 'fileCache.json';
     this.cacheLimit = options.limit || 3;
   }
   minimizeDiffInfo(originalInfo) {
+    console.log(originalInfo);
     const result = originalInfo.map(info => {
       if (info[0] === 0) {
         return info[1].length;
@@ -43,10 +47,8 @@ module.exports = class DiffUpdate {
   }
   apply(compiler) {
     const result = UglifyJS.minify(insertScript);
-    const _self = this;
     compiler.plugin('beforeRun', (compiler) => {
       const output = compiler.options.output.path;
-      this.output = output;
       if (fs.existsSync(output)) {
         const files = fs.readdirSync(output);
         files.forEach(item => {
@@ -61,22 +63,22 @@ module.exports = class DiffUpdate {
     })
     compiler.plugin('compilation', (compilation) => {
       let oriHtml = '';
-      compilation.plugin('html-webpack-plugin-before-html-processing', function(data) {
+      compilation.plugin('html-webpack-plugin-before-html-processing', (data) => {
         oriHtml = data.html;
       });
-      compilation.plugin('html-webpack-plugin-after-html-processing', function(data) {
+      compilation.plugin('html-webpack-plugin-after-html-processing', (data) => {
         const htmlDiff = diff.diffLines(oriHtml, data.html);
         let newHtml = '';
         let newFileCache = [];
-        const { fileCache, diffJson, cacheLimit } = _self;
+        const { fileCache, diffJson, cacheLimit } = this;
         compilation.chunks.forEach(chunk => {
           const { hash } = chunk;
           chunk.files.forEach(filename => {
-            let newFile = compilation.assets[filename].source();
-            newFile = `${newFile}\nwindow.__fileHash = '${hash}'`;
-            fileCache[filename] = fileCache[filename] || [];
-            diffJson[filename] = diffJson[filename] || [];
             if (filename.indexOf('.js') !== -1) {
+              let newFile = compilation.assets[filename].source();
+              newFile = `${newFile}\nwindow.__fileHash='${hash}'`;
+              fileCache[filename] = fileCache[filename] || [];
+              diffJson[filename] = diffJson[filename] || [];
               const matchIndex = fileCache[filename].findIndex(ele => ele.hash === hash);
               if (matchIndex === -1) {
                 fileCache[filename].push({ hash, source: newFile });
@@ -84,11 +86,11 @@ module.exports = class DiffUpdate {
               }
               diffJson[filename].forEach((ele, index) => {
                 const item = fileCache[filename][index];
-                const diff = _self.minimizeDiffInfo(fastDiff(item.source, newFile));
+                const diff = this.minimizeDiffInfo(fastDiff(item.source, newFile));
                 ele.diff = diff;
               });
-              diffJson[filename] = _self.spliceOverflow(diffJson[filename], cacheLimit);
-              fileCache[filename] = _self.spliceOverflow(fileCache[filename], cacheLimit);
+              diffJson[filename] = this.spliceOverflow(diffJson[filename], cacheLimit);
+              fileCache[filename] = this.spliceOverflow(fileCache[filename], cacheLimit);
               newFileCache.push({
                 filename,
                 content: newFile,
@@ -96,36 +98,43 @@ module.exports = class DiffUpdate {
             }
           });
         });
-        setTimeout(() => {
-          newFileCache.forEach(ele => {
-            compilation.assets[ele.filename] = {
-              source() { return ele.content; },
-              size() { return ele.content.length; }
+        if (Object.keys(diffJson).length) {
+          setTimeout(() => {
+            newFileCache.forEach(ele => {
+              compilation.assets[ele.filename] = {
+                source() { return ele.content; },
+                size() { return ele.content.length; }
+              }
+            })
+            compilation.assets[this.diffJSONName] = {
+              source() { return JSON.stringify(diffJson); },
+              size() { return JSON.stringify(diffJson).length; }
             }
-          })
-          compilation.assets[_self.diffJSONName] = {
-            source() { return JSON.stringify(diffJson); },
-            size() { return JSON.stringify(diffJson).length; }
+            compilation.assets[this.fileCachName] = {
+              source() { return JSON.stringify(fileCache); },
+              size() { return JSON.stringify(fileCache).length;}
+            }
+          });
+          for (let i = 0, len = htmlDiff.length; i < len; i += 1) {
+            const item = htmlDiff[i];
+            const { added, value } = item;
+            if (added && /<script type="text\/javascript" src=".*?"><\/script>/.test(value)) {
+              let { value } = item;
+              const jsList = value.match(/(?<=src=")(.*?\.js)/g);
+              value = value.replace(/<script type="text\/javascript" src=".*?"><\/script>/g, '');
+              const insertJson = deepCopy(diffJson);
+              for (const i in insertJson) {
+                if (jsList.indexOf(i) === -1) delete insertJson[i]
+              }
+              newHtml += `<script>${result.code}</script>\n<script>window.__fileDiff__='${JSON.stringify(insertJson)}';</script><script>loadScript(${JSON.stringify(jsList)});</script>\n${value}`;
+            } else if (item.removed) {
+  
+            } else {
+              newHtml += value;
+            }
           }
-          compilation.assets[_self.fileCachName] = {
-            source() { return JSON.stringify(fileCache); },
-            size() { return JSON.stringify(fileCache).length;}
-          }
-        });
-        for (let i = 0, len = htmlDiff.length; i < len; i += 1) {
-          const item = htmlDiff[i];
-          if (item.added) {
-            let { value } = item;
-            const jsList = value.match(/(?<=src=")(.*?\.js)/g);
-            value = value.replace(/<script type="text\/javascript" src=".*?"><\/script>/g, '');
-            newHtml += `<script>${result.code}</script>\n<script>window.__fileDiff__='${JSON.stringify(diffJson)}';</script><script>loadScript(${JSON.stringify(jsList)});</script>\n${value}`;
-          } else if (item.removed) {
-
-          } else {
-            newHtml += item.value;
-          }
+          data.html = newHtml;
         }
-        data.html = newHtml;
       });
     });
   }

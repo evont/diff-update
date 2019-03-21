@@ -1,23 +1,23 @@
 ~(function() {
   function mergeDiff(oldString, diffInfo) {
-      var p = 0;
-      for (var i = 0; i < diffInfo.length; i++) {
-        var info = diffInfo[i];
-        if (typeof(info) == 'string') {
-          info = info.replace(/\\"/g, '"').replace(/\\'/g, "'");
-          oldString = oldString.slice(0, p) + info + oldString.slice(p);
-          p += info.length;
-        }
-        if (typeof(info) == 'number') {
-          if (info < 0) {
-            oldString = oldString.slice(0, p) + oldString.slice(p + Math.abs(info));
-          } else {
-            p += info;
-          }
-          continue;
-        }
+    var p = 0;
+    for (var i = 0; i < diffInfo.length; i++) {
+      var info = diffInfo[i];
+      if (typeof(info) == 'string') {
+        info = info.replace(/\\"/g, '"').replace(/\\'/g, "'");
+        oldString = oldString.slice(0, p) + info + oldString.slice(p);
+        p += info.length;
       }
-      return oldString;
+      if (typeof(info) == 'number') {
+        if (info < 0) {
+          oldString = oldString.slice(0, p) + oldString.slice(p + Math.abs(info));
+        } else {
+          p += info;
+        }
+        continue;
+      }
+    }
+    return oldString;
   }
   function ajaxLoad(resource, callback) {
     if (resource) {
@@ -48,7 +48,6 @@
         __fileDiff__ = typeof(__fileDiff__) === 'string' ? JSON.parse(__fileDiff__ || '{}') : __fileDiff__;
         var fileInfo = __fileDiff__[item] || [];
         var diff;
-        var newHash;
         for(var j = 0, len = fileInfo.length; j < len; j ++ ) {
           var _file = fileInfo[j];
           if (_file.hash === _hash) {
