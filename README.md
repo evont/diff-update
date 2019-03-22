@@ -2,7 +2,7 @@
 
 [中文文档](./README-zh.md)
 
-A Webpack Plugin for diff update javascript via differencing file change & creating a `diff.json`, when front end request a javascript, if there has already had a cache, it will patch update, or it will download the javascript file & cache it;
+A Webpack Plugin that diff update javascript via differencing file change & creating a `diff.json`, when front end request a javascript, if there has already had a cache, it will patch update, or it will download the javascript file & cache it;
 
 ## Why I should use it?
 In most cases, when we change a javascript file, even it is just few change, the chunk hash will change, and the client side needs to download the new file, What a waste!
