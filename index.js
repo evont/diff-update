@@ -66,6 +66,7 @@ module.exports = class DiffUpdate {
         oriHtml = data.html;
       });
       compilation.plugin('html-webpack-plugin-after-html-processing', (data) => {
+        console.log(data.assets)
         const htmlDiff = diff.diffLines(oriHtml, data.html);
         let newHtml = '';
         let newFileCache = [];
@@ -75,7 +76,7 @@ module.exports = class DiffUpdate {
           chunk.files.forEach(filename => {
             if (filename.indexOf('.js') !== -1) {
               let newFile = compilation.assets[filename].source();
-              newFile = `${newFile}\nwindow.__fileHash='${hash}'`;
+              newFile = `${newFile}\nwindow.__fileHash__='${hash}'`;
               fileCache[filename] = fileCache[filename] || [];
               diffJson[filename] = diffJson[filename] || [];
               const matchIndex = fileCache[filename].findIndex(ele => ele.hash === hash);
