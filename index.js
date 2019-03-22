@@ -25,7 +25,6 @@ module.exports = class DiffUpdate {
     this.cacheLimit = options.limit || 3;
   }
   minimizeDiffInfo(originalInfo) {
-    console.log(originalInfo);
     const result = originalInfo.map(info => {
       if (info[0] === 0) {
         return info[1].length;
