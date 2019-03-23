@@ -18,11 +18,19 @@ function deepCopy(obj) {
 }
 module.exports = class DiffUpdate {
   constructor(options = {}) {
+    const defaultOptions = {
+      exclude: false, // 需要排除的文件，与include 互斥
+      include: false, // 只需要差分的部分，与exclude 互斥
+      limit: 3, // 限定历史版本
+    };
+    this.options = Object.assign(defaultOptions, options);
+    if (this.options.exclude !== false && this.options.include !== false) {
+      throw new Error('Diffupdate-webpack-plugin only accept either exclude or include');
+    }
     this.fileCache = {};
     this.diffJson = {};
     this.diffJSONName = 'diff.json';
     this.fileCachName = 'fileCache.json';
-    this.cacheLimit = options.limit || 3;
   }
   minimizeDiffInfo(originalInfo) {
     const result = originalInfo.map(info => {
@@ -43,6 +51,24 @@ module.exports = class DiffUpdate {
       arr.splice(0, len - limit);
     }
     return arr;
+  }
+  isNeeded(filename) {
+    const { options } = this;
+    const { exclude, include } = options;
+    if (exclude !== false) {
+      if (exclude instanceof Array) {
+        return exclude.indexOf(filename) === -1; // 不在排除范围
+      } else {
+        return exclude === filename;
+      }
+    }
+    if (include !== false) {
+      if (include instanceof Array) {
+        return include.indexOf(filename) !== -1; 
+      } else {
+        return include === filename;
+      }
+    }
   }
   apply(compiler) {
     const result = UglifyJS.minify(insertScript);
@@ -66,35 +92,39 @@ module.exports = class DiffUpdate {
         oriHtml = data.html;
       });
       compilation.plugin('html-webpack-plugin-after-html-processing', (data) => {
-        console.log(data.assets)
         const htmlDiff = diff.diffLines(oriHtml, data.html);
         let newHtml = '';
         let newFileCache = [];
-        const { fileCache, diffJson, cacheLimit } = this;
+        const { diffJson, options, fileCache } = this;
         compilation.chunks.forEach(chunk => {
           const { hash } = chunk;
           chunk.files.forEach(filename => {
             if (filename.indexOf('.js') !== -1) {
-              let newFile = compilation.assets[filename].source();
-              newFile = `${newFile}\nwindow.__fileHash__='${hash}'`;
-              fileCache[filename] = fileCache[filename] || [];
-              diffJson[filename] = diffJson[filename] || [];
-              const matchIndex = fileCache[filename].findIndex(ele => ele.hash === hash);
-              if (matchIndex === -1) {
-                fileCache[filename].push({ hash, source: newFile });
-                diffJson[filename].push({ hash, diff: '' });
+              if (this.isNeeded(filename.replace(/\.js/, ''))) {
+                let newFile = compilation.assets[filename].source();
+                newFile = `${newFile}\nwindow.__fileHash='${hash}'`;
+                fileCache[filename] = fileCache[filename] || [];
+                diffJson[filename] = diffJson[filename] || [];
+                const matchIndex = fileCache[filename].findIndex(ele => ele.hash === hash);
+                if (matchIndex === -1) {
+                  fileCache[filename].push({ hash, source: newFile });
+                  diffJson[filename].push({ hash, diff: '' });
+                }
+                diffJson[filename].forEach((ele, index) => {
+                  const item = fileCache[filename][index];
+                  const diff = this.minimizeDiffInfo(fastDiff(item.source, newFile));
+                  ele.diff = diff;
+                });
+                diffJson[filename] = this.spliceOverflow(diffJson[filename], options.limit);
+                fileCache[filename] = this.spliceOverflow(fileCache[filename], options.limit);
+                newFileCache.push({
+                  filename,
+                  content: newFile,
+                })
+              } else {
+                if (diffJson[filename]) delete diffJson[filename];
+                if (fileCache[filename]) delete fileCache[filename];
               }
-              diffJson[filename].forEach((ele, index) => {
-                const item = fileCache[filename][index];
-                const diff = this.minimizeDiffInfo(fastDiff(item.source, newFile));
-                ele.diff = diff;
-              });
-              diffJson[filename] = this.spliceOverflow(diffJson[filename], cacheLimit);
-              fileCache[filename] = this.spliceOverflow(fileCache[filename], cacheLimit);
-              newFileCache.push({
-                filename,
-                content: newFile,
-              })
             }
           });
         });

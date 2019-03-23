@@ -37,12 +37,18 @@ module.exports = {
     new HtmlWebpackPlugin(),
     new DiffUpdate({
       limit: 4, // default 3
+      exclude: ['main', 'index'],
+      // include: 'main',
     })
   ]
 }
 ```
 ### options 
-`limit` version cache limit
+`exclude` String/Array - Allow you to skip some files, default `false`, which means not exclude any files. (do not use it with `include` option);
+
+`include` String/Array - Allow you to include only some files, default `false`, which means include all files. (do not use it with `incluexcludede` option);
+
+`limit` Number - version cache limit, default `3`;
 
 ## known issue
 * Error when require inline css
