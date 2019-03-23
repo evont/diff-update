@@ -41,7 +41,11 @@ module.exports = {
 }
 ```
 ### 配置 
-`limit` 最大版本缓存限制
+`exclude` String/Array - 需要跳过不缓存的文件，默认为`false`, 即引入所有文件，（不能与 `include` 选项同时使用);
+
+`include` String/Array - 允许引入的文件，默认为`false`, 即引入所有文件，（不能与`exlude` 选项同时使用);
+
+`limit` Number - 最大缓存版本限制，默认为 `3`;
 
 ## 已知问题
 * 当css 不配置导出时会出现错误
