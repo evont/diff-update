@@ -220,8 +220,8 @@ module.exports = class DiffUpdate {
             hooks.beforeAssetTagGeneration.tapAsync('diffUpdateWebpackPlugin', onBeforeHtmlGeneration);
             hooks.alterAssetTagGroups.tapAsync('diffUpdateWebpackPlugin', onAlterAssetTag);
           } else {
-            // var message = "Error running html-webpack-include-assets-plugin, are you sure you have html-webpack-plugin before it in your webpack config's plugins?";
-            // throw new Error(message);
+            var message = "Error running diffupdate-webpack-plugin, are you sure you have html-webpack-plugin before it in your webpack config's plugins?";
+            throw new Error(message);
           }
         }
       } else {

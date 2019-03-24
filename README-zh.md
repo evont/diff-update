@@ -14,7 +14,7 @@
 
 如果存在缓存，那么我们将读取一个 `__fileDiff__` 变量（由插件生成插入模板），然后与缓存合并，完成升级
 
-## 安卓
+## 安装
 ```
 npm install --save-dev diffupdate-webpack-plugin
 ```
