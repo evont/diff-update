@@ -1,5 +1,5 @@
 ~(function() {
-  var isSupportStorage = false; //window.Storage && window.localStorage && window.localStorage instanceof Storage;
+  var isSupportStorage = window.Storage && window.localStorage && window.localStorage instanceof Storage;
   function mergeDiff(str, diffInfo) {
     var p = 0;
     for (var i = 0; i < diffInfo.length; i++) {
@@ -51,6 +51,7 @@
     for (var i = 0, len = scripts.length; i < len; i ++) {
       var item = scripts[i];
       var needFullSource = !(isSupportStorage && localStorage.getItem(item));
+
       if (!needFullSource) {
         var itemCache = JSON.parse(localStorage.getItem(item));
         var _hash = itemCache.hash;
@@ -61,10 +62,9 @@
           var _file = fileInfo[j];
           if (_file.hash === _hash) {
             diff = _file.diff;
-            newHash = _file.hash;
           }
         }
-        if (diff && itemCache.source) {
+        if (diff && _hash && itemCache.source) {
           var newScript = mergeDiff(itemCache.source, diff);
           try {
             window.eval(newScript);

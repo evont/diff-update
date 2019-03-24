@@ -71,38 +71,63 @@ module.exports = class DiffUpdate {
     }
   }
   apply(compiler) {
+    const _self = this;
     const result = UglifyJS.minify(insertScript);
-    compiler.plugin('beforeRun', (compiler) => {
+    const jsList = [];
+    function filterJs(tags) {
+      const result = [];
+      for (let i = 0, len = tags.length; i < len; i ++) {
+        const item = tags[i];
+        if (item.tagName === 'script') {
+          jsList.push(item.attributes.src);
+        } else {
+          result.push(item);
+        }
+      }
+      return result;
+    }
+    function onBeforeRun(compiler) {
       const output = compiler.options.output.path;
       if (fs.existsSync(output)) {
         const files = fs.readdirSync(output);
         files.forEach(item => {
           const data = fs.readFileSync(`${output}/${item}`, 'utf-8');
-          if (item === this.diffJSONName) {
-            this.diffJson = JSON.parse(data);
-          } else if (item === this.fileCachName) {
-            this.fileCache = JSON.parse(data);
+          if (item === _self.diffJSONName) {
+            _self.diffJson = JSON.parse(data);
+          } else if (item === _self.fileCachName) {
+            _self.fileCache = JSON.parse(data);
           }
         })
       }
-    })
-    compiler.plugin('compilation', (compilation) => {
+    }
+    
+    function onCompilation(compilation) {
       let oriHtml = '';
-      compilation.plugin('html-webpack-plugin-before-html-processing', (data) => {
-        oriHtml = data.html;
-      });
-      compilation.plugin('html-webpack-plugin-after-html-processing', (data) => {
-        const htmlDiff = diff.diffLines(oriHtml, data.html);
-        let newHtml = '';
+      function onBeforeHtmlGeneration(htmlPluginData, callback) {
+        oriHtml = htmlPluginData.html;
+        if (callback) {
+          return callback(null, htmlPluginData);
+        } else {
+          return Promise.resolve(htmlPluginData);
+        }
+      }
+      function onAlterAssetTag(htmlPluginData, callback) {
+        if (htmlPluginData.head) {
+          htmlPluginData.head = filterJs(htmlPluginData.head);
+          htmlPluginData.body = filterJs(htmlPluginData.body).concat();
+        } else {
+          htmlPluginData.headTags = filterJs(htmlPluginData.headTags);
+          htmlPluginData.bodyTags = filterJs(htmlPluginData.bodyTags);
+        }
         let newFileCache = [];
-        const { diffJson, options, fileCache } = this;
+        const { diffJson, options, fileCache } = _self;
         compilation.chunks.forEach(chunk => {
           const { hash } = chunk;
           chunk.files.forEach(filename => {
             if (filename.indexOf('.js') !== -1) {
-              if (this.isNeeded(filename.replace(/\.js/, ''))) {
+              if (_self.isNeeded(filename.replace(/\.js/, ''))) {
                 let newFile = compilation.assets[filename].source();
-                newFile = `${newFile}\nwindow.__fileHash='${hash}'`;
+                newFile = `${newFile}\nwindow.__fileHash__='${hash}'`;
                 fileCache[filename] = fileCache[filename] || [];
                 diffJson[filename] = diffJson[filename] || [];
                 const matchIndex = fileCache[filename].findIndex(ele => ele.hash === hash);
@@ -112,11 +137,11 @@ module.exports = class DiffUpdate {
                 }
                 diffJson[filename].forEach((ele, index) => {
                   const item = fileCache[filename][index];
-                  const diff = this.minimizeDiffInfo(fastDiff(item.source, newFile));
+                  const diff = _self.minimizeDiffInfo(fastDiff(item.source, newFile));
                   ele.diff = diff;
                 });
-                diffJson[filename] = this.spliceOverflow(diffJson[filename], options.limit);
-                fileCache[filename] = this.spliceOverflow(fileCache[filename], options.limit);
+                diffJson[filename] = _self.spliceOverflow(diffJson[filename], options.limit);
+                fileCache[filename] = _self.spliceOverflow(fileCache[filename], options.limit);
                 newFileCache.push({
                   filename,
                   content: newFile,
@@ -136,36 +161,84 @@ module.exports = class DiffUpdate {
                 size() { return ele.content.length; }
               }
             })
-            compilation.assets[this.diffJSONName] = {
+            compilation.assets[_self.diffJSONName] = {
               source() { return JSON.stringify(diffJson); },
               size() { return JSON.stringify(diffJson).length; }
             }
-            compilation.assets[this.fileCachName] = {
+            compilation.assets[_self.fileCachName] = {
               source() { return JSON.stringify(fileCache); },
               size() { return JSON.stringify(fileCache).length;}
             }
           });
-          for (let i = 0, len = htmlDiff.length; i < len; i += 1) {
-            const item = htmlDiff[i];
-            const { added, value } = item;
-            if (added && /<script type="text\/javascript" src=".*?"><\/script>/.test(value)) {
-              let { value } = item;
-              const jsList = value.match(/(?<=src=")(.*?\.js)/g);
-              value = value.replace(/<script type="text\/javascript" src=".*?"><\/script>/g, '');
-              const insertJson = deepCopy(diffJson);
-              for (const i in insertJson) {
-                if (jsList.indexOf(i) === -1) delete insertJson[i]
-              }
-              newHtml += `<script>${result.code}</script>\n<script>window.__fileDiff__='${JSON.stringify(insertJson)}';</script><script>loadScript(${JSON.stringify(jsList)});</script>\n${value}`;
-            } else if (item.removed) {
-  
-            } else {
-              newHtml += value;
-            }
+          const insertJson = deepCopy(diffJson);
+          for (const i in insertJson) {
+            if (jsList.indexOf(i) === -1) delete insertJson[i]
           }
-          data.html = newHtml;
+          
+          const newScript = [
+            {
+              tagName: 'script',
+              closeTag: true,
+              attributes: {
+                type: 'text/javascript'
+              },
+              innerHTML: result.code,
+            },
+            {
+              tagName: 'script',
+              closeTag: true,
+              attributes: {
+                type: 'text/javascript'
+              },
+              innerHTML: `window.__fileDiff__='${JSON.stringify(insertJson)}';loadScript(${JSON.stringify(jsList)});`
+            },
+          ]
+          if (htmlPluginData.body) {
+            htmlPluginData.body = htmlPluginData.body.concat(newScript)
+          } else {
+            htmlPluginData.bodyTags = htmlPluginData.bodyTags.concat(newScript)
+          }
         }
-      });
-    });
+        if (callback) {
+          return callback(null, htmlPluginData);
+        } else {
+          return Promise.resolve(htmlPluginData);
+        }
+      }
+
+      // Webpack 4+
+      if (compilation.hooks) {
+        // HtmlWebPackPlugin 3.x
+        if (compilation.hooks.htmlWebpackPluginBeforeHtmlGeneration) {
+          compilation.hooks.htmlWebpackPluginBeforeHtmlGeneration.tapAsync('diffUpdateWebpackPlugin', onBeforeHtmlGeneration);
+          compilation.hooks.htmlWebpackPluginAlterAssetTags.tapAsync('diffUpdateWebpackPlugin', onAlterAssetTag);
+        } else {
+          var HtmlWebpackPlugin = require('html-webpack-plugin');
+          // HtmlWebPackPlugin 4.x
+          if (HtmlWebpackPlugin.getHooks) {
+            var hooks = HtmlWebpackPlugin.getHooks(compilation);
+            hooks.beforeAssetTagGeneration.tapAsync('diffUpdateWebpackPlugin', onBeforeHtmlGeneration);
+            hooks.alterAssetTagGroups.tapAsync('diffUpdateWebpackPlugin', onAlterAssetTag);
+          } else {
+            // var message = "Error running html-webpack-include-assets-plugin, are you sure you have html-webpack-plugin before it in your webpack config's plugins?";
+            // throw new Error(message);
+          }
+        }
+      } else {
+        // Webpack 3
+        compilation.plugin('html-webpack-plugin-before-html-generation', onBeforeHtmlGeneration);
+        compilation.plugin('html-webpack-plugin-alter-asset-tags', onAlterAssetTag);
+      }
+    }
+
+    // Webpack 4+
+    if (compiler.hooks) {
+      compiler.hooks.compilation.tap('diffUpdateWebpackPlugin', onCompilation);
+      compiler.hooks.beforeRun.tap('diffUpdateWebpackPlugin', onBeforeRun);
+    } else {
+      // Webpack 3
+      compiler.plugin('compilation', onCompilation);
+      compiler.plugin('beforeRun', onBeforeRun);
+    }
   }
 }

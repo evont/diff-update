@@ -38,7 +38,7 @@ module.exports = {
       chunkFilename: '[id].css',
     }),
     new DiffUpdate({
-      exclude: ['index', 'out'],
+      exclude: ['out'],
     })
   ]
 }
