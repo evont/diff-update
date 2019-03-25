@@ -44,9 +44,9 @@ module.exports = {
 }
 ```
 ### options 
-`exclude` String/Array - Allow you to skip some files, default `false`, which means not exclude any files. (do not use it with `include` option);
+`exclude` String/Array/RegExp - Allow you to skip some files, default `false`, which means not exclude any files. (do not use it with `include` option);
 
-`include` String/Array - Allow you to include only some files, default `false`, which means include all files. (do not use it with `exclude` option);
+`include` String/Array/RegExp - Allow you to include only some files, default `false`, which means include all files. (do not use it with `exclude` option);
 
 `limit` Number - version cache limit, default `3`;
 

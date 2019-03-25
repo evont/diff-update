@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const UglifyJS = require('uglify-js');
 const fastDiff = require('fast-diff');
-const diff = require('diff');
 
 const insertScript = fs.readFileSync(path.resolve(__dirname, './tmp.js'), 'utf-8');
 
@@ -58,6 +57,8 @@ module.exports = class DiffUpdate {
     if (exclude !== false) {
       if (exclude instanceof Array) {
         return exclude.indexOf(filename) === -1; // 不在排除范围
+      } else if (exclude instanceof RegExp) {
+        return exclude.test(filename)
       } else {
         return exclude === filename;
       }
@@ -65,6 +66,8 @@ module.exports = class DiffUpdate {
     if (include !== false) {
       if (include instanceof Array) {
         return include.indexOf(filename) !== -1; 
+      } else if (include instanceof RegExp) {
+        return include.test(filename)
       } else {
         return include === filename;
       }
@@ -102,15 +105,6 @@ module.exports = class DiffUpdate {
     }
     
     function onCompilation(compilation) {
-      let oriHtml = '';
-      function onBeforeHtmlGeneration(htmlPluginData, callback) {
-        oriHtml = htmlPluginData.html;
-        if (callback) {
-          return callback(null, htmlPluginData);
-        } else {
-          return Promise.resolve(htmlPluginData);
-        }
-      }
       function onAlterAssetTag(htmlPluginData, callback) {
         if (htmlPluginData.head) {
           htmlPluginData.head = filterJs(htmlPluginData.head);
@@ -210,14 +204,12 @@ module.exports = class DiffUpdate {
       if (compilation.hooks) {
         // HtmlWebPackPlugin 3.x
         if (compilation.hooks.htmlWebpackPluginBeforeHtmlGeneration) {
-          compilation.hooks.htmlWebpackPluginBeforeHtmlGeneration.tapAsync('diffUpdateWebpackPlugin', onBeforeHtmlGeneration);
           compilation.hooks.htmlWebpackPluginAlterAssetTags.tapAsync('diffUpdateWebpackPlugin', onAlterAssetTag);
         } else {
           var HtmlWebpackPlugin = require('html-webpack-plugin');
           // HtmlWebPackPlugin 4.x
           if (HtmlWebpackPlugin.getHooks) {
             var hooks = HtmlWebpackPlugin.getHooks(compilation);
-            hooks.beforeAssetTagGeneration.tapAsync('diffUpdateWebpackPlugin', onBeforeHtmlGeneration);
             hooks.alterAssetTagGroups.tapAsync('diffUpdateWebpackPlugin', onAlterAssetTag);
           } else {
             var message = "Error running diffupdate-webpack-plugin, are you sure you have html-webpack-plugin before it in your webpack config's plugins?";
@@ -226,7 +218,6 @@ module.exports = class DiffUpdate {
         }
       } else {
         // Webpack 3
-        compilation.plugin('html-webpack-plugin-before-html-generation', onBeforeHtmlGeneration);
         compilation.plugin('html-webpack-plugin-alter-asset-tags', onAlterAssetTag);
       }
     }
