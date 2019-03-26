@@ -38,13 +38,25 @@
       }
     }
   }
+  function execScript(file, key, type) {
+    if (window.Blob) {
+      var blob = new Blob([ file ], { type: 'text/javascript' });
+      var url = URL.createObjectURL(blob);
+      var scriptTag = document.createElement('script');
+      scriptTag.src = url;
+      document.body.appendChild(scriptTag);
+    } else {
+      window.eval(file);
+    }
+
+    localStorage.setItem(key, JSON.stringify({
+      hash:  window.__fileHash__,
+      source: file,
+    }));
+  }
   function loadFullSource(item) {
     ajaxLoad(item, function(result) {
-      window.eval(result);
-      localStorage.setItem(item, JSON.stringify({
-        hash: window.__fileHash__,
-        source: result,
-      }));
+      execScript(result, item)
     });
   }
   function loadScript(scripts) {
@@ -67,11 +79,7 @@
         if (diff && _hash && itemCache.source) {
           var newScript = mergeDiff(itemCache.source, diff);
           try {
-            window.eval(newScript);
-            localStorage.setItem(item, JSON.stringify({
-              hash: window.__fileHash__,
-              source: newScript,
-            }));
+            execScript(newScript, item)
           } catch(e) {
             console.error(e);
             needFullSource = true;

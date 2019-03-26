@@ -76,12 +76,11 @@ module.exports = class DiffUpdate {
   apply(compiler) {
     const _self = this;
     const result = UglifyJS.minify(insertScript);
-    const jsList = [];
-    function filterJs(tags) {
+    function filterFile(tags, jsList) {
       const result = [];
       for (let i = 0, len = tags.length; i < len; i ++) {
         const item = tags[i];
-        if (item.tagName === 'script') {
+        if (item.tagName === 'script' && _self.isNeeded(item.attributes.src.replace(/\.js/, ''))) {
           jsList.push(item.attributes.src);
         } else {
           result.push(item);
@@ -106,12 +105,13 @@ module.exports = class DiffUpdate {
     
     function onCompilation(compilation) {
       function onAlterAssetTag(htmlPluginData, callback) {
+        const jsList = [];
         if (htmlPluginData.head) {
-          htmlPluginData.head = filterJs(htmlPluginData.head);
-          htmlPluginData.body = filterJs(htmlPluginData.body).concat();
+          htmlPluginData.head = filterFile(htmlPluginData.head, jsList);
+          htmlPluginData.body = filterFile(htmlPluginData.body, jsList).concat();
         } else {
-          htmlPluginData.headTags = filterJs(htmlPluginData.headTags);
-          htmlPluginData.bodyTags = filterJs(htmlPluginData.bodyTags);
+          htmlPluginData.headTags = filterFile(htmlPluginData.headTags, jsList);
+          htmlPluginData.bodyTags = filterFile(htmlPluginData.bodyTags, jsList);
         }
         let newFileCache = [];
         const { diffJson, options, fileCache } = _self;
